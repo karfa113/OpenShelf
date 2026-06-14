@@ -12,7 +12,6 @@ class Book {
   DateTime dateAdded;
   bool isTBR;
   String? notes;
-  String? imagePath;
 
   Book({
     String? id,
@@ -26,7 +25,6 @@ class Book {
     DateTime? dateAdded,
     this.isTBR = false,
     this.notes,
-    this.imagePath,
   })  : id = id ?? const Uuid().v4(),
         dateAdded = dateAdded ?? DateTime.now();
 
@@ -40,7 +38,6 @@ class Book {
     DateTime? dateRead,
     bool? isTBR,
     String? notes,
-    String? imagePath,
   }) {
     return Book(
       id: id,
@@ -54,7 +51,6 @@ class Book {
       dateAdded: dateAdded,
       isTBR: isTBR ?? this.isTBR,
       notes: notes ?? this.notes,
-      imagePath: imagePath ?? this.imagePath,
     );
   }
 
@@ -70,7 +66,6 @@ class Book {
         'dateAdded': dateAdded.toIso8601String(),
         'isTBR': isTBR,
         'notes': notes,
-        'imagePath': imagePath,
       };
 
   factory Book.fromJson(Map<String, dynamic> json) => Book(
@@ -91,6 +86,5 @@ class Book {
             : DateTime.tryParse(json['dateAdded'] as String) ?? DateTime.now(),
         isTBR: json['isTBR'] as bool? ?? false,
         notes: json['notes'] as String?,
-        imagePath: json['imagePath'] as String?,
       );
 }

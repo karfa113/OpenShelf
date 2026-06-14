@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -31,7 +28,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
   late List<String> _genres;
   late bool _alreadyRead;
   DateTime? _dateRead;
-  String? _imagePath;
 
   bool get _isEditing => widget.editing != null;
 
@@ -48,7 +44,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
     _genres = [...?e?.genres];
     _alreadyRead = e?.alreadyRead ?? false;
     _dateRead = e?.dateRead;
-    _imagePath = e?.imagePath;
   }
 
   @override
@@ -61,29 +56,19 @@ class _AddBookScreenState extends State<AddBookScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-    );
-    if (result != null && result.files.single.path != null) {
-      setState(() => _imagePath = result.files.single.path);
-    }
-  }
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final name = _name.text.trim();
     final pages = int.tryParse(_pages.text.trim()) ?? 0;
     final lib = context.read<LibraryProvider>();
+    final messenger = ScaffoldMessenger.of(context);
 
-    // Duplicate check
     final isDuplicate = lib.all.any((b) =>
         b.name.toLowerCase() == name.toLowerCase() &&
         b.id != widget.editing?.id);
 
     if (isDuplicate) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text('A book with the name "$name" already exists.'),
           backgroundColor: Colors.redAccent,
@@ -92,33 +77,44 @@ class _AddBookScreenState extends State<AddBookScreen> {
       return;
     }
 
-    if (_isEditing) {
-      await lib.updateBook(widget.editing!.copyWith(
-        name: name,
-        author: _author.text.trim(),
-        publisher: _publisher.text.trim(),
-        pages: pages,
-        genres: _genres,
-        alreadyRead: _alreadyRead,
-        dateRead: _alreadyRead ? (_dateRead ?? DateTime.now()) : null,
-        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-        imagePath: _imagePath,
-      ));
-    } else {
-      await lib.addBook(Book(
-        name: name,
-        author: _author.text.trim(),
-        publisher: _publisher.text.trim(),
-        pages: pages,
-        genres: _genres,
-        alreadyRead: _alreadyRead,
-        dateRead: _alreadyRead ? (_dateRead ?? DateTime.now()) : null,
-        isTBR: widget.isTBR,
-        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-        imagePath: _imagePath,
-      ));
+    try {
+      if (_isEditing) {
+        await lib.updateBook(widget.editing!.copyWith(
+          name: name,
+          author: _author.text.trim(),
+          publisher: _publisher.text.trim(),
+          pages: pages,
+          genres: _genres,
+          alreadyRead: _alreadyRead,
+          dateRead: _alreadyRead ? (_dateRead ?? DateTime.now()) : null,
+          notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        ));
+      } else {
+        await lib.addBook(Book(
+          name: name,
+          author: _author.text.trim(),
+          publisher: _publisher.text.trim(),
+          pages: pages,
+          genres: _genres,
+          alreadyRead: _alreadyRead,
+          dateRead: _alreadyRead ? (_dateRead ?? DateTime.now()) : null,
+          isTBR: widget.isTBR,
+          notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not save: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
     }
-    if (mounted) Navigator.of(context).pop();
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -143,60 +139,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
           children: [
-            // Image picker
-            Center(
-              child: GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  width: 120,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _imagePath != null
-                      ? Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.file(File(_imagePath!), fit: BoxFit.cover),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: GestureDetector(
-                                onTap: () => setState(() => _imagePath = null),
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black54,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.close,
-                                      size: 16, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add_a_photo_outlined,
-                                color: AppColors.textTertiary, size: 32),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Add Cover',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: AppColors.textTertiary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
             _field(_name, 'Title',
                 textCapitalization: TextCapitalization.words,
                 validator: (v) =>
@@ -310,7 +252,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
                           borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Text(_isEditing ? 'Save' : 'Add',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                        style:
+                            GoogleFonts.inter(fontWeight: FontWeight.w600)),
                   ),
                 ),
               ],
@@ -396,7 +339,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+                borderSide:
+                    const BorderSide(color: AppColors.accent, width: 1.5),
               ),
               labelStyle: GoogleFonts.spaceGrotesk(
                   color: AppColors.textSecondary, fontSize: 14),
@@ -437,4 +381,3 @@ class _AddBookScreenState extends State<AddBookScreen> {
     );
   }
 }
-

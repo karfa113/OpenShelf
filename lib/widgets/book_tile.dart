@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -116,21 +114,6 @@ class _Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _colorForBook(book);
-
-    Widget content;
-    if (book.imagePath != null && File(book.imagePath!).existsSync()) {
-      content = Image.file(File(book.imagePath!), fit: BoxFit.cover);
-    } else {
-      content = Text(
-        initial,
-        style: GoogleFonts.spaceGrotesk(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          color: color.withValues(alpha: 0.85),
-        ),
-      );
-    }
-
     return Container(
       width: 58,
       height: 80,
@@ -138,8 +121,14 @@ class _Cover extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
-      clipBehavior: Clip.antiAlias,
-      child: content,
+      child: Text(
+        initial,
+        style: GoogleFonts.spaceGrotesk(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          color: color.withValues(alpha: 0.85),
+        ),
+      ),
     );
   }
 

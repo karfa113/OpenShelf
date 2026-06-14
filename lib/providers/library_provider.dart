@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/book.dart';
@@ -57,24 +59,61 @@ class LibraryFilter {
 
 enum SortKey { dateAddedDesc, dateAddedAsc, nameAsc, pagesDesc }
 
+/// A factory that builds a [StorageService] for a given signed-in user id.
+typedef StorageBuilder = StorageService Function(String uid);
+
 class LibraryProvider extends ChangeNotifier {
-  final StorageService _storage;
+  final StorageBuilder _storageBuilder;
+  StorageService? _storage;
+  String? _uid;
+
   final List<Book> _books = [];
+  StreamSubscription<List<Book>>? _sub;
   bool _loaded = false;
   bool get loaded => _loaded;
+  bool get isBound => _storage != null;
 
-  LibraryProvider(this._storage);
+  LibraryProvider(this._storageBuilder);
 
-  Future<void> load() async {
-    final list = await _storage.loadBooks();
-    _books
-      ..clear()
-      ..addAll(list);
-    _loaded = true;
-    notifyListeners();
+  /// Re-points the provider at a different user. Called by the proxy provider
+  /// in main.dart whenever AuthProvider's user changes. A null [uid] means
+  /// signed out — the in-memory list is cleared and the subscription closed.
+  void rebindToUid(String? uid) {
+    if (_uid == uid) return;
+    _uid = uid;
+    _sub?.cancel();
+    _books.clear();
+    _loaded = false;
+
+    if (uid == null) {
+      _storage = null;
+      notifyListeners();
+      return;
+    }
+    _storage = _storageBuilder(uid);
+    // notifyListeners after _loaded flips back to true in the stream callback.
+    _subscribe();
   }
 
-  Future<void> _persist() => _storage.saveBooks(_books);
+  void _subscribe() {
+    final storage = _storage;
+    if (storage == null) return;
+    _sub = storage.watchBooks().listen((list) {
+      _books
+        ..clear()
+        ..addAll(list);
+      _loaded = true;
+      notifyListeners();
+    }, onError: (e, st) {
+      debugPrint('LibraryProvider stream error: $e');
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 
   List<Book> get all => List.unmodifiable(_books);
 
@@ -87,44 +126,51 @@ class LibraryProvider extends ChangeNotifier {
         ..sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
 
   // CRUD ---------------------------------------------------------------------
+  //
+  // All writes go through the storage layer per-doc. We do NOT mutate _books
+  // directly — the snapshot listener (in load()) is the sole writer of _books.
+  // Firestore applies writes to its local cache immediately and the snapshot
+  // listener fires synchronously, so the UI still updates instantly.
 
   Future<void> addBook(Book book) async {
-    _books.add(book);
-    notifyListeners();
-    await _persist();
+    final s = _storage;
+    if (s == null) return;
+    await s.saveBook(book);
   }
 
   Future<void> updateBook(Book book) async {
-    final idx = _books.indexWhere((b) => b.id == book.id);
-    if (idx == -1) return;
-    _books[idx] = book;
-    notifyListeners();
-    await _persist();
+    final s = _storage;
+    if (s == null) return;
+    await s.saveBook(book);
   }
 
   Future<void> deleteBook(String id) async {
-    _books.removeWhere((b) => b.id == id);
-    notifyListeners();
-    await _persist();
+    final s = _storage;
+    if (s == null) return;
+    await s.removeBook(id);
   }
 
   Future<void> moveTbrToLibrary(String id) async {
-    final idx = _books.indexWhere((b) => b.id == id);
-    if (idx == -1) return;
-    _books[idx] = _books[idx].copyWith(isTBR: false);
-    notifyListeners();
-    await _persist();
+    final s = _storage;
+    if (s == null) return;
+    final existing = _books.firstWhere(
+      (b) => b.id == id,
+      orElse: () => throw StateError('Book $id not found'),
+    );
+    await s.saveBook(existing.copyWith(isTBR: false));
   }
 
   Future<void> setRead(String id, bool read, {DateTime? date}) async {
-    final idx = _books.indexWhere((b) => b.id == id);
-    if (idx == -1) return;
-    _books[idx] = _books[idx].copyWith(
+    final s = _storage;
+    if (s == null) return;
+    final existing = _books.firstWhere(
+      (b) => b.id == id,
+      orElse: () => throw StateError('Book $id not found'),
+    );
+    await s.saveBook(existing.copyWith(
       alreadyRead: read,
       dateRead: read ? (date ?? DateTime.now()) : null,
-    );
-    notifyListeners();
-    await _persist();
+    ));
   }
 
   // Stats --------------------------------------------------------------------
@@ -279,10 +325,16 @@ class LibraryProvider extends ChangeNotifier {
 
   // Import/Export passthrough -----------------------------------------------
 
-  Future<String> exportJsonString() => _storage.exportJsonString();
+  Future<String> exportJsonString() async {
+    final s = _storage;
+    if (s == null) return '';
+    return s.exportJsonString();
+  }
 
   Future<void> importFromJsonString(String json, {bool replace = true}) async {
-    await _storage.importFromJsonString(json, replace: replace);
-    await load();
+    final s = _storage;
+    if (s == null) return;
+    await s.importFromJsonString(json, replace: replace);
+    // Snapshot listener will re-emit; no manual reload needed.
   }
 }

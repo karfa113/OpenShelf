@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -93,20 +91,14 @@ class BookDetailScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       alignment: Alignment.center,
-                      clipBehavior: Clip.antiAlias,
-                      child: (book.imagePath != null &&
-                              File(book.imagePath!).existsSync())
-                          ? Image.file(File(book.imagePath!), fit: BoxFit.cover)
-                          : Text(
-                              book.name.isNotEmpty
-                                  ? book.name[0].toUpperCase()
-                                  : '?',
-                              style: GoogleFonts.spaceGrotesk(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
-                                color: color,
-                              ),
-                            ),
+                      child: Text(
+                        book.name.isNotEmpty ? book.name[0].toUpperCase() : '?',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -305,4 +297,6 @@ class _ActionBtn extends StatelessWidget {
     );
   }
 }
+
+
 

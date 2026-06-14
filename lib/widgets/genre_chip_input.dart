@@ -21,16 +21,27 @@ class GenreChipInput extends StatefulWidget {
 
 class _GenreChipInputState extends State<GenreChipInput> {
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
 
   void _add([String? value]) {
     final v = (value ?? _controller.text).trim();
     if (v.isEmpty) return;
     if (widget.genres.any((g) => g.toLowerCase() == v.toLowerCase())) {
       _controller.clear();
+      _keepFocus();
       return;
     }
     widget.onChanged([...widget.genres, v]);
     _controller.clear();
+    _keepFocus();
+  }
+
+  /// Keep the keyboard up so the user can chain-add genres. The post-frame
+  /// callback ensures we refocus after the parent's setState rebuild settles.
+  void _keepFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   void _remove(String g) {
@@ -40,6 +51,7 @@ class _GenreChipInputState extends State<GenreChipInput> {
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -54,7 +66,7 @@ class _GenreChipInputState extends State<GenreChipInput> {
             Expanded(
               child: RawAutocomplete<String>(
                 textEditingController: _controller,
-                focusNode: FocusNode(),
+                focusNode: _focusNode,
                 optionsBuilder: (TextEditingValue textEditingValue) {
                   if (textEditingValue.text.isEmpty) {
                     return const Iterable<String>.empty();
@@ -72,11 +84,12 @@ class _GenreChipInputState extends State<GenreChipInput> {
                   return TextField(
                     controller: controller,
                     focusNode: focusNode,
-                    onSubmitted: (_) {
-                      _add();
-                      focusNode.requestFocus();
+                    onSubmitted: (_) => _add(),
+                    textInputAction: TextInputAction.next,
+                    onEditingComplete: () {
+                      // Block the default behaviour of advancing focus to the
+                      // next form field. We handle focus ourselves in _add().
                     },
-                    textInputAction: TextInputAction.done,
                     textCapitalization: TextCapitalization.words,
                     style: GoogleFonts.inter(color: AppColors.textPrimary),
                     decoration: InputDecoration(
