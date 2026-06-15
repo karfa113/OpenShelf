@@ -329,8 +329,9 @@ class _AddBookScreenState extends State<AddBookScreen> {
   Widget _isbnLookupRow() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: IntrinsicHeight(
+        child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: TextFormField(
@@ -366,9 +367,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
+          ElevatedButton(
               onPressed: _isbnLoading ? null : _fetchByIsbn,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
@@ -389,9 +388,9 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     )
                   : Text('Fetch',
                       style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-            ),
           ),
         ],
+      ),
       ),
     );
   }
