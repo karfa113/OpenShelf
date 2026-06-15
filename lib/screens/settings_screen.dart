@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -50,26 +51,35 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 8),
           _Section(title: 'Export', children: [
-            _Row(
-              icon: Icons.picture_as_pdf_outlined,
-              label: 'Generate PDF',
-              subtitle: 'Full library manual with cover & tables',
-              onTap: () => _downloadPdf(context, lib),
-            ),
-            const Divider(color: AppColors.border, height: 24),
-            _Row(
-              icon: Icons.file_upload_outlined,
-              label: 'Export JSON',
-              subtitle: 'Share or save your library data',
-              onTap: () => _exportJson(context, lib),
-            ),
-            const Divider(color: AppColors.border, height: 24),
-            _Row(
-              icon: Icons.file_download_outlined,
-              label: 'Import JSON',
-              subtitle: 'Restore from a previous export',
-              onTap: () => _importJson(context, lib),
-            ),
+            if (!kIsWeb) ...[
+              _Row(
+                icon: Icons.picture_as_pdf_outlined,
+                label: 'Generate PDF',
+                subtitle: 'Full library manual with cover & tables',
+                onTap: () => _downloadPdf(context, lib),
+              ),
+              const Divider(color: AppColors.border, height: 24),
+              _Row(
+                icon: Icons.file_upload_outlined,
+                label: 'Export JSON',
+                subtitle: 'Share or save your library data',
+                onTap: () => _exportJson(context, lib),
+              ),
+              const Divider(color: AppColors.border, height: 24),
+              _Row(
+                icon: Icons.file_download_outlined,
+                label: 'Import JSON',
+                subtitle: 'Restore from a previous export',
+                onTap: () => _importJson(context, lib),
+              ),
+            ] else
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'PDF export and file import/export are available on the mobile app.',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+                ),
+              ),
           ]),
 
           const SizedBox(height: 8),
@@ -394,3 +404,5 @@ class _Avatar extends StatelessWidget {
     );
   }
 }
+
+

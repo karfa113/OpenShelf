@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../models/book.dart';
 import '../providers/library_provider.dart';
+import '../services/isbn_lookup_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/genre_chip_input.dart';
 
@@ -20,6 +21,7 @@ class AddBookScreen extends StatefulWidget {
 
 class _AddBookScreenState extends State<AddBookScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _isbn;
   late final TextEditingController _name;
   late final TextEditingController _author;
   late final TextEditingController _publisher;
@@ -28,6 +30,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
   late List<String> _genres;
   late bool _alreadyRead;
   DateTime? _dateRead;
+  bool _isbnLoading = false;
 
   bool get _isEditing => widget.editing != null;
 
@@ -35,6 +38,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
   void initState() {
     super.initState();
     final e = widget.editing;
+    _isbn = TextEditingController();
     _name = TextEditingController(text: e?.name ?? '');
     _author = TextEditingController(text: e?.author ?? '');
     _publisher = TextEditingController(text: e?.publisher ?? '');
@@ -48,12 +52,66 @@ class _AddBookScreenState extends State<AddBookScreen> {
 
   @override
   void dispose() {
+    _isbn.dispose();
     _name.dispose();
     _author.dispose();
     _publisher.dispose();
     _pages.dispose();
     _notes.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchByIsbn() async {
+    final raw = _isbn.text.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    if (raw.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Enter an ISBN first.')),
+      );
+      return;
+    }
+    if (!IsbnLookupService.isValid(raw)) {
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('ISBN must be 10 or 13 digits.'),
+            backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    setState(() => _isbnLoading = true);
+    try {
+      final result = await IsbnLookupService().lookup(raw);
+      if (!mounted) return;
+      setState(() {
+        if (result.title.isNotEmpty) _name.text = result.title;
+        if (result.author.isNotEmpty) _author.text = result.author;
+        if (result.publisher.isNotEmpty) _publisher.text = result.publisher;
+        if (result.pages > 0) _pages.text = '${result.pages}';
+        if (result.genres.isNotEmpty) {
+          final merged = {..._genres, ...result.genres}.toList();
+          _genres = merged;
+        }
+      });
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Book details loaded.')),
+      );
+    } on IsbnLookupException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+            content: Text(e.message), backgroundColor: Colors.redAccent),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Lookup failed. Check your connection.'),
+            backgroundColor: Colors.redAccent),
+      );
+    } finally {
+      if (mounted) setState(() => _isbnLoading = false);
+    }
   }
 
   Future<void> _save() async {
@@ -139,6 +197,10 @@ class _AddBookScreenState extends State<AddBookScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
           children: [
+            if (!_isEditing) ...[
+              _isbnLookupRow(),
+              const SizedBox(height: 8),
+            ],
             _field(_name, 'Title',
                 textCapitalization: TextCapitalization.words,
                 validator: (v) =>
@@ -260,6 +322,76 @@ class _AddBookScreenState extends State<AddBookScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _isbnLookupRow() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _isbn,
+              keyboardType: TextInputType.text,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9Xx\-\s]')),
+              ],
+              enabled: !_isbnLoading,
+              onFieldSubmitted: (_) => _fetchByIsbn(),
+              style: GoogleFonts.inter(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'ISBN (optional)',
+                hintText: '10 or 13 digits',
+                hintStyle: GoogleFonts.inter(
+                    color: AppColors.textTertiary, fontSize: 13),
+                filled: true,
+                fillColor: AppColors.bg,
+                prefixIcon: const Icon(Icons.qr_code_2_rounded,
+                    color: AppColors.textTertiary, size: 20),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.borderMid),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.accent, width: 1.5),
+                ),
+                labelStyle: GoogleFonts.spaceGrotesk(
+                    color: AppColors.textSecondary, fontSize: 14),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _isbnLoading ? null : _fetchByIsbn,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.black,
+                disabledBackgroundColor:
+                    AppColors.accent.withValues(alpha: 0.5),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isbnLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.black),
+                    )
+                  : Text('Fetch',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
       ),
     );
   }
