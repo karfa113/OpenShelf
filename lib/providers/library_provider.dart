@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:home_widget/home_widget.dart';
 
 import '../models/book.dart';
 import '../services/storage_service.dart';
@@ -103,6 +104,7 @@ class LibraryProvider extends ChangeNotifier {
         ..clear()
         ..addAll(list);
       _loaded = true;
+      _updateWidget();
       notifyListeners();
     }, onError: (e, st) {
       debugPrint('LibraryProvider stream error: $e');
@@ -174,6 +176,13 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   // Stats --------------------------------------------------------------------
+
+  Future<void> _updateWidget() async {
+    await HomeWidget.saveWidgetData('totalBooks', library.length);
+    await HomeWidget.saveWidgetData('totalRead', library.where((b) => b.alreadyRead).length);
+    await HomeWidget.saveWidgetData('tbrCount', tbr.length);
+    await HomeWidget.updateWidget(androidName: 'StatsWidgetProvider');
+  }
 
   int get totalBooks => library.length;
   int get totalRead => library.where((b) => b.alreadyRead).length;
