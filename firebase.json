@@ -1,1 +1,29 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"openshelf-ea920","appId":"1:888324642308:android:b123b48a4abf2c319b0751","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"openshelf-ea920","configurations":{"android":"1:888324642308:android:b123b48a4abf2c319b0751","ios":"1:888324642308:ios:45653250e6e661c59b0751"}}}}}}
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "openshelf-ea920",
+          "appId": "1:888324642308:android:b123b48a4abf2c319b0751",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "openshelf-ea920",
+          "configurations": {
+            "android": "1:888324642308:android:b123b48a4abf2c319b0751",
+            "ios": "1:888324642308:ios:45653250e6e661c59b0751"
+          }
+        }
+      }
+    }
+  }
+}

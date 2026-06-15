@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -25,6 +26,11 @@ class AuthService {
   }
 
   Future<User?> signInWithGoogle() async {
+    if (kIsWeb) {
+      final provider = GoogleAuthProvider();
+      final result = await _auth.signInWithPopup(provider);
+      return result.user;
+    }
     final gUser = await _google.signIn();
     if (gUser == null) return null;
     final gAuth = await gUser.authentication;
@@ -40,7 +46,7 @@ class AuthService {
       _auth.sendPasswordResetEmail(email: email);
 
   Future<void> signOut() async {
-    await _google.signOut();
+    if (!kIsWeb) await _google.signOut();
     await _auth.signOut();
   }
 }
